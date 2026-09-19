@@ -3914,3 +3914,6 @@ input[type="checkbox"] {
     flex-wrap: wrap;
   }
 }
+.sidebar {
+  overflow-y: auto;
+}
