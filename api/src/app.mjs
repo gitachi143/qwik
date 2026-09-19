@@ -251,6 +251,26 @@ export async function handle(req) {
         kind: isAdmin ? "admin" : "product",
         version: "0.1.0",
       });
+    if (path === "session-diagnostic" && method === "POST") {
+      const record = await get("sessions", hash(String(body.token || "")));
+      if (!record) fail("Not found", 404);
+      const raw = cookieToken(req, "qwik_session");
+      return json({
+        cookiePresent: !!req.headers.get("cookie"),
+        cookieNames: req.headers
+          .get("cookie")
+          ?.split(";")
+          .map((c) => c.trim().split("=")[0]),
+        authorizationPresent: !!req.headers.get("authorization"),
+        headerNames: [...req.headers.keys()],
+        cookieMatches: raw === body.token,
+        recordActive: record.expires > Date.now(),
+        recordAdmin: Boolean(record.admin),
+        kind: process.env.QWIK_KIND,
+        revoked: !!(await get(userPartition(record.userId), "revoked")),
+        sessionFound: !!(await session(req, isAdmin)),
+      });
+    }
     if (path === "auth/me") {
       const s = await session(req, isAdmin);
       if (!s || s.projectId) return json({ user: null });
