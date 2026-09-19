@@ -516,3 +516,41 @@ test("model reviews reject invented file paths and normalize findings", async ()
   assert.equal(r.findings.length, 1);
   assert.equal(r.findings[0].source, "model");
 });
+
+test("Azure proxy authorization does not mask browser sessions or Qwik CLI tokens", async () => {
+  const u = await user();
+  const proxy = "Bearer eyJ.platform-internal-jwt.signature";
+  const browser = await request("projects", {
+    cookie: u.cookie,
+    headers: { Authorization: proxy },
+  });
+  assert.equal(browser.status, 200);
+  const t = await request("tokens", {
+    method: "POST",
+    cookie: u.cookie,
+    body: { name: "CLI" },
+  });
+  const cli = await request("projects", {
+    headers: { Authorization: proxy, "X-Qwik-Token": t.data.token },
+  });
+  assert.equal(cli.status, 200);
+  assert.equal(
+    (
+      await request("projects", {
+        headers: { Authorization: proxy, "X-Qwik-Token": "invalid" },
+      })
+    ).status,
+    401,
+  );
+  const csrf = await request("projects", {
+    method: "POST",
+    cookie: u.cookie,
+    body: { name: "blocked" },
+    headers: {
+      Authorization: proxy,
+      "X-Qwik-Request": "",
+      Origin: "https://attacker.test",
+    },
+  });
+  assert.equal(csrf.status, 403);
+});

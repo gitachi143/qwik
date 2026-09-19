@@ -51,7 +51,9 @@ async function api(path, method = "GET", body) {
     headers: {
       "Content-Type": "application/json",
       "X-Qwik-Request": "1",
-      ...(token() ? { Authorization: `Bearer ${token()}` } : {}),
+      ...(token()
+        ? { "X-Qwik-Token": token(), Authorization: `Bearer ${token()}` }
+        : {}),
     },
     ...(body ? { body: JSON.stringify(body) } : {}),
     signal: AbortSignal.timeout(40000),

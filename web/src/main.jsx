@@ -646,7 +646,7 @@ function Auth({ mode = "login", onAuthenticated }) {
     <div className="auth-page">
       <div className="auth-top">
         <Logo />
-        <Link to="/docs" className="text-link">
+        <Link to={ADMIN ? SITE + "/docs" : "/docs"} className="text-link">
           Need a hand? <ArrowUpRight size={14} />
         </Link>
       </div>
@@ -2217,9 +2217,15 @@ function Dashboard({ user, onLogout, demo = false, path }) {
                                 <Button
                                   variant="ghost"
                                   icon={Plus}
-                                  onClick={() => setNewProject(true)}
+                                  onClick={() =>
+                                    projects.length
+                                      ? go(`${base}/projects`)
+                                      : setNewProject(true)
+                                  }
                                 >
-                                  Add your first project
+                                  {projects.length
+                                    ? "Open projects"
+                                    : "Add your first project"}
                                 </Button>
                               </Empty>
                             )}

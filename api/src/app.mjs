@@ -60,8 +60,18 @@ function cookieToken(req, name) {
     .find((x) => x.startsWith(`${name}=`))
     ?.slice(name.length + 1);
 }
+// SWA injects its own Authorization JWT when proxying to managed Functions.
+// Application API tokens travel in a dedicated header; direct deployments may
+// also use the exact opaque bearer format emitted by Qwik.
+function apiToken(req) {
+  const token = req.headers.get("x-qwik-token");
+  if (token) return token;
+  return req.headers
+    .get("authorization")
+    ?.match(/^Bearer ([A-Za-z0-9_-]{43})$/)?.[1];
+}
 async function session(req, admin = false) {
-  const bearer = req.headers.get("authorization")?.match(/^Bearer (.+)$/)?.[1];
+  const bearer = apiToken(req);
   const raw = bearer || cookieToken(req, admin ? "qwik_admin" : "qwik_session");
   if (raw) {
     const s = await get(bearer ? "tokens" : "sessions", hash(raw));
@@ -219,10 +229,7 @@ export async function handle(req) {
     const isAdmin = process.env.QWIK_KIND === "admin";
     if (method === "OPTIONS")
       return json({ error: "Cross-origin API calls are not enabled." }, 403);
-    if (
-      !["GET", "HEAD"].includes(method) &&
-      !req.headers.get("authorization")?.startsWith("Bearer ")
-    ) {
+    if (!["GET", "HEAD"].includes(method) && !apiToken(req)) {
       const origin = req.headers.get("origin");
       if (origin && origin !== (process.env.QWIK_PUBLIC_URL || url.origin))
         fail("Cross-origin request rejected.", 403);
@@ -251,26 +258,6 @@ export async function handle(req) {
         kind: isAdmin ? "admin" : "product",
         version: "0.1.0",
       });
-    if (path === "session-diagnostic" && method === "POST") {
-      const record = await get("sessions", hash(String(body.token || "")));
-      if (!record) fail("Not found", 404);
-      const raw = cookieToken(req, "qwik_session");
-      return json({
-        cookiePresent: !!req.headers.get("cookie"),
-        cookieNames: req.headers
-          .get("cookie")
-          ?.split(";")
-          .map((c) => c.trim().split("=")[0]),
-        authorizationPresent: !!req.headers.get("authorization"),
-        headerNames: [...req.headers.keys()],
-        cookieMatches: raw === body.token,
-        recordActive: record.expires > Date.now(),
-        recordAdmin: Boolean(record.admin),
-        kind: process.env.QWIK_KIND,
-        revoked: !!(await get(userPartition(record.userId), "revoked")),
-        sessionFound: !!(await session(req, isAdmin)),
-      });
-    }
     if (path === "auth/me") {
       const s = await session(req, isAdmin);
       if (!s || s.projectId) return json({ user: null });
