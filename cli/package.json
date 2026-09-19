@@ -1,0 +1,20 @@
+{
+  "name": "@gitachi143/qwik-cli",
+  "version": "0.1.0",
+  "description": "Qwik: fast, open-source code security reviews in your terminal.",
+  "type": "module",
+  "bin": {
+    "qwik": "bin.mjs"
+  },
+  "engines": {
+    "node": ">=22"
+  },
+  "files": [
+    "bin.mjs",
+    "lib/",
+    "README.md",
+    "LICENSE"
+  ],
+  "license": "MIT",
+  "repository": "https://github.com/gitachi143/qwik"
+}

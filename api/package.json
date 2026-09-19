@@ -1,0 +1,15 @@
+{
+  "name": "qwik-api",
+  "version": "0.1.0",
+  "private": true,
+  "type": "module",
+  "main": "src/function.mjs",
+  "engines": {
+    "node": ">=22"
+  },
+  "dependencies": {
+    "@azure/data-tables": "^13.3.1",
+    "@azure/functions": "^4.7.2",
+    "undici": "^7.29.1"
+  }
+}

@@ -4,3 +4,10 @@
 !.env.example
 .sites-runtime/
 node_modules/
+dist/
+dist-admin/
+*.tgz
+.qwik.json
+playwright-report/
+test-results/
+*.log
