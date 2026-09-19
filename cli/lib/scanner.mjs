@@ -269,6 +269,8 @@ export async function auditDependencies(
     });
     if (!response.ok) throw new Error("Advisory service unavailable");
     const data = await response.json();
+    if (!Array.isArray(data.results) || data.results.length !== deps.length)
+      throw new Error("Incomplete advisory response");
     const findings = [];
     for (const [i, result] of (data.results || []).entries()) {
       for (const vuln of (result.vulns || [])
@@ -313,8 +315,10 @@ export async function modelReview(
   );
   let length = 0;
   const selected = source.filter((f) => {
-    length += f.content.length;
-    return length < 60000;
+    const size = Buffer.byteLength(f.content);
+    if (length + size > 60000) return false;
+    length += size;
+    return true;
   });
   if (!selected.length)
     return { findings: [], status: "no source files within model limit" };
@@ -358,15 +362,32 @@ export async function modelReview(
   const raw = ollama
     ? data.message?.content
     : data.choices?.[0]?.message?.content;
-  const result = JSON.parse(
-    String(raw || "")
-      .replace(/^```(?:json)?\s*/, "")
-      .replace(/\s*```$/, ""),
-  );
+  let result;
+  try {
+    result = JSON.parse(
+      String(raw || "")
+        .replace(/^```(?:json)?\s*/, "")
+        .replace(/\s*```$/, ""),
+    );
+  } catch {
+    throw new Error(
+      "Model returned invalid JSON; no model findings were accepted.",
+    );
+  }
+  if (!result || !Array.isArray(result.findings))
+    throw new Error("Model response did not contain a findings array.");
   const valid = new Set(selected.map((f) => f.path));
   return {
     findings: (Array.isArray(result.findings) ? result.findings : [])
-      .filter((f) => valid.has(f.file))
+      .filter(
+        (f) =>
+          f &&
+          valid.has(f.file) &&
+          Number(f.line) >= 1 &&
+          Number(f.line) <=
+            selected.find((file) => file.path === f.file).content.split("\n")
+              .length,
+      )
       .slice(0, 25)
       .map((f) => normalizeFinding({ ...f, source: "model" }, "AI")),
     status: `reviewed ${selected.length} of ${source.length} source files`,

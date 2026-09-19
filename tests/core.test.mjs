@@ -554,3 +554,46 @@ test("Azure proxy authorization does not mask browser sessions or Qwik CLI token
   });
   assert.equal(csrf.status, 403);
 });
+
+test("malformed model output is visibly incomplete and does not leak response text", async () => {
+  const files = [{ path: "app.js", content: "const x=1;" }],
+    settings = {
+      endpoint: "https://example.test/v1",
+      provider: "custom",
+      model: "test",
+    };
+  for (const response of ["{", "{}"])
+    await assert.rejects(
+      modelReview(
+        files,
+        settings,
+        DEFAULT_PROMPT,
+        async () =>
+          new Response(
+            JSON.stringify({ choices: [{ message: { content: response } }] }),
+          ),
+      ),
+      /Model/,
+    );
+});
+test("oversized model files do not prevent smaller files from being reviewed", async () => {
+  let seen;
+  const files = [
+    { path: "large.js", content: "x".repeat(65000) },
+    { path: "small.js", content: "const x=1;" },
+  ];
+  const r = await modelReview(
+    files,
+    { endpoint: "http://127.0.0.1:11434", provider: "ollama", model: "test" },
+    DEFAULT_PROMPT,
+    async (u, options) => {
+      seen = JSON.parse(JSON.parse(options.body).messages[1].content).files;
+      return new Response(
+        JSON.stringify({ message: { content: '{"findings":[]}' } }),
+      );
+    },
+  );
+  assert.equal(seen.length, 1);
+  assert.equal(seen[0].path, "small.js");
+  assert(r.status.includes("1 of 2"));
+});

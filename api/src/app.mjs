@@ -134,14 +134,19 @@ async function saveScan(userId, projectId, input) {
   if (!project) fail("Project not found.", 404);
   const id = random().slice(0, 16);
   const findings = (Array.isArray(input.findings) ? input.findings : [])
-    .slice(0, 75)
     .map((f) => {
       const finding = normalizeFinding(f);
       return {
         ...finding,
         fingerprint: hash(projectId + ":" + finding.fingerprint).slice(0, 24),
       };
-    });
+    })
+    .sort(
+      (a, b) =>
+        ({ critical: 0, high: 1, medium: 2, low: 3 })[a.severity] -
+        { critical: 0, high: 1, medium: 2, low: 3 }[b.severity],
+    )
+    .slice(0, 75);
   const scan = {
     id,
     projectId,
@@ -249,7 +254,9 @@ export async function handle(req) {
       }
     }
     const ip = hash(
-      req.headers.get("x-forwarded-for")?.split(",")[0] || "local",
+      req.headers.get("client-ip") ||
+        req.headers.get("x-forwarded-for")?.split(",")[0] ||
+        "local",
     ).slice(0, 20);
     if (path === "health")
       return json({
